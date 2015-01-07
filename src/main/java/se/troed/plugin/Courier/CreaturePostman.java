@@ -23,6 +23,9 @@ public class CreaturePostman extends Postman {
         if(plugin.getCConfig().getWalkToPlayer()) {
             postman.setTarget(player);
         }
+        postman.setCustomNameVisible(true);
+        postman.setCustomName("To " + player.getDisplayName());
+        
         uuid = postman.getUniqueId();
     }
 

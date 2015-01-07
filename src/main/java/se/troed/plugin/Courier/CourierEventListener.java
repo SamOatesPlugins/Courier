@@ -201,16 +201,39 @@ class CourierEventListener implements Listener {
         // Did we right click a Postman?
         Postman postman = tracker.getPostman(e.getRightClicked().getUniqueId());
         if(!e.isCancelled() && !e.getRightClicked().isDead() && postman != null && !postman.scheduledForQuickRemoval()) {
-            plugin.getCConfig().clog(Level.FINE, e.getPlayer().getDisplayName() + " receiving mail");
-            ItemStack letter = postman.getLetterItem();
+            if (postman.getPlayer() == e.getPlayer())
+            {
+                plugin.getCConfig().clog(Level.FINE, e.getPlayer().getDisplayName() + " receiving mail");
+                ItemStack letter = postman.getLetterItem();
 
-            if(item != null && item.getAmount() > 0) {
-                plugin.getCConfig().clog(Level.FINE, "Player hands not empty");
-                HashMap<Integer, ItemStack> items = e.getPlayer().getInventory().addItem(letter);
-                if(items.isEmpty()) {
-                    plugin.getCConfig().clog(Level.FINE, "Letter added to inventory");
-                    // send an explaining string to the player
-                    Courier.display(e.getPlayer(), plugin.getCConfig().getInventory());
+                if(item != null && item.getAmount() > 0) {
+                    plugin.getCConfig().clog(Level.FINE, "Player hands not empty");
+                    HashMap<Integer, ItemStack> items = e.getPlayer().getInventory().addItem(letter);
+                    if(items.isEmpty()) {
+                        plugin.getCConfig().clog(Level.FINE, "Letter added to inventory");
+                        // send an explaining string to the player
+                        Courier.display(e.getPlayer(), plugin.getCConfig().getInventory());
+                        if(e.getRightClicked() instanceof Enderman) {
+                            ((Enderman)e.getRightClicked()).setCarriedMaterial(new MaterialData(Material.AIR));
+                        } else {
+                            ((Creature) e.getRightClicked()).setTarget(null);
+                        }
+
+                        // delivered
+                        CourierDeliveryEvent event = new CourierDeliveryEvent(e.getPlayer(), letter.getEnchantmentLevel(Enchantment.DURABILITY));
+                        plugin.getServer().getPluginManager().callEvent(event);
+                    } else {
+                        plugin.getCConfig().clog(Level.FINE, "Inventory full, letter dropped");
+                        postman.drop();
+                        // delivered on pickup
+                    }
+                } else {
+                    plugin.getCConfig().clog(Level.FINE, "Letter delivered into player's hands");
+                    e.getPlayer().setItemInHand(letter); // REALLY replaces what's there
+
+                    // todo: quick render
+                    e.getPlayer().sendMap(plugin.getServer().getMap(plugin.getCourierdb().getCourierMapId()));
+
                     if(e.getRightClicked() instanceof Enderman) {
                         ((Enderman)e.getRightClicked()).setCarriedMaterial(new MaterialData(Material.AIR));
                     } else {
@@ -220,37 +243,25 @@ class CourierEventListener implements Listener {
                     // delivered
                     CourierDeliveryEvent event = new CourierDeliveryEvent(e.getPlayer(), letter.getEnchantmentLevel(Enchantment.DURABILITY));
                     plugin.getServer().getPluginManager().callEvent(event);
-                } else {
-                    plugin.getCConfig().clog(Level.FINE, "Inventory full, letter dropped");
-                    postman.drop();
-                    // delivered on pickup
-                }
-            } else {
-                plugin.getCConfig().clog(Level.FINE, "Letter delivered into player's hands");
-                e.getPlayer().setItemInHand(letter); // REALLY replaces what's there
-
-                // todo: quick render
-                e.getPlayer().sendMap(plugin.getServer().getMap(plugin.getCourierdb().getCourierMapId()));
-
-                if(e.getRightClicked() instanceof Enderman) {
-                    ((Enderman)e.getRightClicked()).setCarriedMaterial(new MaterialData(Material.AIR));
-                } else {
-                    ((Creature) e.getRightClicked()).setTarget(null);
                 }
 
-                // delivered
-                CourierDeliveryEvent event = new CourierDeliveryEvent(e.getPlayer(), letter.getEnchantmentLevel(Enchantment.DURABILITY));
-                plugin.getServer().getPluginManager().callEvent(event);
-            }
+                // Only cancelling the event for Villagers, less possible legacy issues
+                // There might be a good reason for cancelling it for all entities though
+                if(e.getRightClicked() instanceof Villager) {
+                    plugin.getCConfig().clog(Level.FINE, "Cancel Villager trading screen");
+                    e.setCancelled(true);
+                }
 
-            // Only cancelling the event for Villagers, less possible legacy issues
-            // There might be a good reason for cancelling it for all entities though
-            if(e.getRightClicked() instanceof Villager) {
-                plugin.getCConfig().clog(Level.FINE, "Cancel Villager trading screen");
-                e.setCancelled(true);
+                postman.quickDespawn();
             }
-
-            postman.quickDespawn();
+            else
+            {
+                // TODO: OUTPUT TO PLAYER 'The post is for 'postman.getPlayer()'
+                if(e.getRightClicked() instanceof Villager) {
+                    plugin.getCConfig().clog(Level.FINE, "Cancel Villager trading screen");
+                    e.setCancelled(true);
+                }
+            }
         }
     }
 
@@ -451,7 +462,7 @@ class CourierEventListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onPlayerQuit(PlayerQuitEvent event) {
-        if(plugin.getServer().getOnlinePlayers().length <= 1) { // ==
+        if(plugin.getServer().getOnlinePlayers().size() <= 1) { // ==
             // last player left
             plugin.pauseDeliveries();
         }
@@ -460,7 +471,7 @@ class CourierEventListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onPlayerJoin(PlayerJoinEvent event) {
-        if(plugin.getServer().getOnlinePlayers().length == 1) {
+        if(plugin.getServer().getOnlinePlayers().size() == 1) {
             // first player joined
             // note: if this ever jumps from 0 to 2 in one go we'll never start deliveries. Implement failsafe?
             plugin.startDeliveries();

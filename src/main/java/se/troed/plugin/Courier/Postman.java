@@ -47,6 +47,10 @@ public abstract class Postman {
     // must be implemented
     public abstract void spawn(Location l);
 
+    public Player getPlayer() {
+        return player;
+    }
+    
     public EntityType getType() {
         return type;
     }

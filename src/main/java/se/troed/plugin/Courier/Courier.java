@@ -285,7 +285,7 @@ public class Courier extends JavaPlugin {
     private void deliverMail() {
         // find first online player with undelivered mail
         // spawn new thread to deliver the mail
-        Player[] players = getServer().getOnlinePlayers();
+         Collection<? extends Player> players = getServer().getOnlinePlayers();
         for (Player player : players) {
             if (courierdb.undeliveredMail(player.getName())) {
                 // Do not deliver mail to players in Creative mode
@@ -514,7 +514,7 @@ public class Courier extends JavaPlugin {
             getCConfig().clog(Level.FINE, "LetterRenderer attached to Map " + mv.getId());
         }
         
-        if(!abort && getServer().getOnlinePlayers().length > 0) {
+        if(!abort && getServer().getOnlinePlayers().size() > 0) {
             // players already on, we've been reloaded
             startDeliveries();
         }
